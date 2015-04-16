@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en" ng-app>
+
+  <head>
+
+    <title>Clickscape</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+    
+      .world {
+        display: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 600px;
+      }
+    
+      .user {
+        display: inline-block;
+      }
+      
+      .user.blocked {
+        color: red;
+      }
+      
+      .world.blocked {
+        background: black;
+      }
+
+    </style>
+
+  </head>
+  
+  <body>
+
+    <div class="world">
+      
+      <div class="users">
+      </div>
+      
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/jquery.min.js"></script>
+    
+    <script>
+    
+      // TODO: Don't show your own user
+      // TODO: When redrawing the roster, include the blocked states
+      // TODO: Flying over the ocean (doesn't need any server communication)
+      
+      var socket = io.connect();
+      
+      socket.on('connect', function() {
+        socket.emit('identify');
+      });
+
+      socket.on('roster', function(names) {
+        $('.users').html('');
+        $.each(names, function() {
+          var i = parseInt(this);
+          // TODO: We should note if each user is blocked here
+          $('.users').append('<div class="user" data-user="' + i + '">User ' + (i + 1) + '</div>')
+        });
+      });
+
+      socket.on('block', function(i) {
+        console.log('Blocking user ', i);
+        $(".user[data-user='" + i + "']").addClass('blocked');
+      });
+
+      socket.on('unblock', function(i) {
+        console.log('Unblocking user ', i);
+        $(".user[data-user='" + i + "']").removeClass('blocked');
+      });
+      
+      socket.on('you_are_blocked', function() {
+        console.log('I am blocked!');
+        $('.world').addClass('blocked');
+      });
+
+      socket.on('you_are_unblocked', function() {
+        console.log('I am unblocked!');
+        $('.world').removeClass('blocked');
+      });
+
+      $('.users').on('click', '.user', function(event) {
+        var i = $(this).data('user');
+        console.log('Toggling:', i);
+        socket.emit('toggle', i);
+      });
+      
+    </script>
+    
+  </body>
+</html>
