@@ -15,6 +15,8 @@
         width: 100%;
         height: 600px;
       }
+      
+      
     
       .user {
         display: inline-block;
@@ -24,8 +26,18 @@
         color: red;
       }
       
-      .world.blocked {
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 90%;
         background: black;
+        display: none;
+      }
+      
+      .world.blocked .overlay {
+        display: block;
       }
 
     </style>
@@ -36,6 +48,10 @@
 
     <div class="world">
       
+      <img src="/img/slide1.jpg" id="image">
+      
+      <div class="overlay"></div>
+
       <div class="users">
       </div>
       
@@ -43,52 +59,90 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/jquery.min.js"></script>
+    <script src="//jqueryrotate.googlecode.com/svn/trunk/jQueryRotate.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-easing/1.3/jquery.easing.min.js"></script>
     
     <script>
     
       // TODO: Don't show your own user
       // TODO: When redrawing the roster, include the blocked states
-      // TODO: Flying over the ocean (doesn't need any server communication)
-      
+
+      // Set up websockets
       var socket = io.connect();
       
-      socket.on('connect', function() {
-        socket.emit('identify');
-      });
-
-      socket.on('roster', function(names) {
+      var user_num;
+      
+      // When we receive a change to the roster, display the new roster
+      socket.on('roster', function(users) {
         $('.users').html('');
-        $.each(names, function() {
-          var i = parseInt(this);
-          // TODO: We should note if each user is blocked here
-          $('.users').append('<div class="user" data-user="' + i + '">User ' + (i + 1) + '</div>')
+        $.each(users, function() {
+          if (this.is_you) {
+            // If this user is me, don't display it, but do note our own user number
+            if (user_num != this.user_num) {
+              user_num = this.user_num;
+              console.log("I am user", user_num);
+            }
+          }
+          else {
+            if (this.blocked) {
+              css_class = 'user blocked';
+            }
+            else {
+              css_class = 'user';
+            }
+            $('.users').append('<div class="' + css_class + '" data-user="' + this.user_num + '">User ' + this.user_num + '</div>');
+          }
         });
       });
 
+      // When we receive a message that someone has been blocked, show that they are blocked
       socket.on('block', function(i) {
         console.log('Blocking user ', i);
         $(".user[data-user='" + i + "']").addClass('blocked');
       });
 
+      // When we receive a message that someone has been unblocked, show that they are unblocked
       socket.on('unblock', function(i) {
         console.log('Unblocking user ', i);
         $(".user[data-user='" + i + "']").removeClass('blocked');
       });
       
+      // When we receive a message that WE have been blocked, show that we are blocked
       socket.on('you_are_blocked', function() {
         console.log('I am blocked!');
         $('.world').addClass('blocked');
       });
 
+      // When we receive a message that WE have been unblocked, show that we are unblocked
       socket.on('you_are_unblocked', function() {
         console.log('I am unblocked!');
         $('.world').removeClass('blocked');
       });
 
+      // When you click on a user, send a message to the server to block or unblock that user
       $('.users').on('click', '.user', function(event) {
         var i = $(this).data('user');
-        console.log('Toggling:', i);
-        socket.emit('toggle', i);
+        if ($(this).hasClass('blocked')) {
+          console.log('Asking to unblock', i);
+          socket.emit('unblock', i);
+        }
+        else {
+          console.log('Asking to block', i);
+          socket.emit('block', i);
+        }
+      })
+
+      // Rotate the image on click-- if we aren't blocked
+      var value = 0;
+      $("#image").rotate({ 
+        bind: { 
+          click: function() {
+            if (!$('.world').hasClass('blocked')) {
+              value +=6;
+              $(this).rotate({ animateTo:value})
+            }
+          }
+        } 
       });
       
     </script>
